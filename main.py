@@ -45,7 +45,23 @@ col2.write(pd.Series(labels, name='label'))
 
 One of the aspects that affect the performance of VADER is the mapping from compound score to sentiment labels.
 In which, we have to map scores from the range of [-1, 1] to sentiments label [negative, neutral, positive].
+"""
+import nltk
 
+nltk.download('vader_lexicon')
+
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+
+sid = SentimentIntensityAnalyzer()
+
+if st.checkbox('Show Example Score',value=True):
+    tweet_text = df['tweet_text'][3]
+    score = sid.polarity_scores(tweet_text)['compound']
+    st.write(
+        pd.DataFrame([[tweet_text, score]],columns=['tweet_text', 'score'])
+    )
+
+"""
 We can see that by adjusting the threshold of neutral sentiment labels, it affects the classifications result as seen below.
 
 """
@@ -55,6 +71,15 @@ neutral = st.slider('neutral', min_value=0.0, max_value=1.0, step=0.01, label_vi
 f"""
 neutral threshold = ±{neutral}
 """
+
+col1, _ = st.columns(2)
+col1.latex(r'''
+sentiment = \begin{cases}
+   negative &\text{if } score < ''' + str(-neutral) + r'''\\
+   neutral &\text{if } ''' + str(-neutral) + r''' <= score <= ''' + str(neutral) + r'''\\
+   positive &\text{if } score > ''' + str(neutral) + r'''
+\end{cases}
+''')
 
 import nltk
 
@@ -69,21 +94,40 @@ with st.spinner(text="doing VADER calculation..."):
     df['compound'] = df['scores'].apply(lambda score_dict: score_dict['compound'])
     df['comp_score'] = df['compound'].apply(lambda c: labels['positive'] if c > neutral else (labels['negative'] if c < -neutral else labels['neutral']))
 
-col1, col2 = st.columns(2)
-col1.write('Manual class counts')
-col1.write(counts)
+if st.checkbox('Show Result Head', value=True):
+    st.write(df[['tweet_text', 'compound', 'comp_score']].head())
 
-col2.write('VADER class counts')
-col2.write(df['comp_score'].value_counts())
+if st.checkbox('Show Class Counts', value=True):
+    col1, col2 = st.columns(2)
+    col1.write('Manual class counts')
+    col1.write(counts)
+
+    col2.write('VADER class counts')
+    col2.write(df['comp_score'].value_counts())
 
 from sklearn.metrics import classification_report
 from sklearn.metrics import ConfusionMatrixDisplay
 
-f"""
-```bash
-{classification_report(df['label'], df['comp_score'], labels=[1, 2, 3])}
-```
-"""
+if st.checkbox('Show Classification Report', value=True):
+    f"""
+    ```bash
+    {classification_report(df['label'], df['comp_score'], labels=[1, 2, 3])}
+    ```
+    """
+
+col1, col2 = st.columns(2)
+
+fig, ax = plt.subplots()
+ConfusionMatrixDisplay.from_predictions(df['label'], df['comp_score'], display_labels=labels, cmap="Greens", ax=ax)
+
+col1.write('**VADER** Result')
+col1.pyplot(fig)
+
+fig, ax = plt.subplots()
+ConfusionMatrixDisplay.from_predictions(df['label'], df['label'], display_labels=labels, cmap="Greens", ax=ax)
+
+col2.write('Ideal Result')
+col2.pyplot(fig)
 
 """
 As we play with the neutral sentiment threshold, we can see
@@ -94,17 +138,3 @@ The accuracy is higher, but if we look at the confusion matrix, we can see that 
 predicting neutral sentiment.
 But it is not good at predicting negative and positive sentiment.
 """
-
-col1, col2 = st.columns(2)
-
-fig, ax = plt.subplots()
-ConfusionMatrixDisplay.from_predictions(df['label'], df['comp_score'], display_labels=labels, cmap="Greens", ax=ax)
-
-col1.write('VADER Result')
-col1.pyplot(fig)
-
-fig, ax = plt.subplots()
-ConfusionMatrixDisplay.from_predictions(df['label'], df['label'], display_labels=labels, cmap="Greens", ax=ax)
-
-col2.write('Ideal Result')
-col2.pyplot(fig)
