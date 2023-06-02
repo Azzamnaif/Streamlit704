@@ -95,7 +95,16 @@ predicting neutral sentiment.
 But it is not good at predicting negative and positive sentiment.
 """
 
+col1, col2 = st.columns(2)
+
 fig, ax = plt.subplots()
 ConfusionMatrixDisplay.from_predictions(df['label'], df['comp_score'], display_labels=labels, cmap="Greens", ax=ax)
 
-st.pyplot(fig)
+col1.write('VADER Result')
+col1.pyplot(fig)
+
+fig, ax = plt.subplots()
+ConfusionMatrixDisplay.from_predictions(df['label'], df['label'], display_labels=labels, cmap="Greens", ax=ax)
+
+col2.write('Ideal Result')
+col2.pyplot(fig)
