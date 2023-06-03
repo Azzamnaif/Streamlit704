@@ -2,10 +2,10 @@ import streamlit as st
 
 """
 # Course Assignment: CPIS-704
+> The Course is About Applied E-Systems and Pervasive Computing
 
-## Objective
+## Assignment
 Create an interactive notebook using [streamlit.io][streamlit-io].
-
 
 [streamlit-io]: https://streamlit.io
 
