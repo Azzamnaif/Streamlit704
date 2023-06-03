@@ -9,20 +9,22 @@ and its related step － from cleaning to generating word cloud － to get
 a meaningful word with the most occurrences.
 
 ## Dataset
-[The dataset][the-dataset] used is taken from [kaggle][kaggle-dataset]. Created by [Gabriel Preda][gabriel-preda].
-The dataset is a collection of tweets related to Covid-19 vaccines with
-manually annotated sentiments (negative, neutral, positive).
-Negative sentiment is labeled as 1, neutral as 2, and positive as 3.
+[The dataset][the-dataset] used is taken from [kaggle][kaggle-dataset].
+Created by [Manu Siddhartha][manu-siddhartha].
+This dataset consists of a nearly 3000 Amazon customer reviews
+(input text), star ratings, date of review, variant and feedback
+of various amazon Alexa products like Alexa Echo, Echo dots, Alexa
+Firesticks etc.
 
-[the-dataset]: app/static/covid-19_vaccine_tweets_with_sentiment.csv
-[kaggle-dataset]: https://www.kaggle.com/datasets/datasciencetool/covid19-vaccine-tweets-with-sentiment-annotation
-[gabriel-preda]: https://www.kaggle.com/gpreda
+[the-dataset]: app/static/amazon_alexa.tsv
+[kaggle-dataset]: https://www.kaggle.com/datasets/sid321axn/amazon-alexa-reviews
+[manu-siddhartha]: https://www.kaggle.com/sid321axn
 """
 
 # load dataset
 import pandas as pd
 
-df = pd.read_csv('./static/covid-19_vaccine_tweets_with_sentiment.csv', encoding='unicode_escape')
+df = pd.read_csv('./static/amazon_alexa.tsv',delimiter='\t')
 
 if st.checkbox('Show dataset head'):
     st.write('dataset head')
@@ -44,10 +46,10 @@ below too.
 col1, col2 = st.columns([0.3, 0.7])
 
 @st.cache_data
-def countWordFrequencies():
+def countWordFrequenciesAlexa():
     from sklearn.feature_extraction.text import CountVectorizer
     vectorizer = CountVectorizer()
-    X = vectorizer.fit_transform(df['tweet_text'])
+    X = vectorizer.fit_transform(df['verified_reviews'].fillna(' '))
     words = vectorizer.get_feature_names_out()
     frequencies = X.toarray().sum(axis=0)
 
@@ -55,7 +57,7 @@ def countWordFrequencies():
 
 
 with st.spinner('Calculating frequencies...'):
-    words, frequencies = countWordFrequencies()
+    words, frequencies = countWordFrequenciesAlexa()
 
     dfWords = pd.DataFrame({'word': words, 'frequency': frequencies})
 
@@ -102,16 +104,16 @@ easily see the interesting word as shown below.
 col1, col2 = st.columns([0.4, 0.6])
 
 @st.cache_data
-def countWordFrequenciesExcludeStopWords():
+def countWordFrequenciesExcludeStopWordsAlexa(tag):
     from sklearn.feature_extraction.text import CountVectorizer
     vectorizer = CountVectorizer(stop_words='english')
-    X = vectorizer.fit_transform(df['tweet_text'])
+    X = vectorizer.fit_transform(df['verified_reviews'].fillna(' '))
     words = vectorizer.get_feature_names_out()
     frequencies = X.toarray().sum(axis=0)
     return words, frequencies
 
 with st.spinner('Calculating frequencies with stopwords...'):
-    words, frequencies = countWordFrequenciesExcludeStopWords()
+    words, frequencies = countWordFrequenciesExcludeStopWordsAlexa(None)
     dfWords = pd.DataFrame({'word': words, 'frequency': frequencies})
 
 col1.write(dfWords.sort_values('frequency', ascending=False).head())
@@ -122,25 +124,58 @@ with st.spinner('Generating word cloud...'):
 
 """
 After we applied stopwords, we started to see interesting words.
-But still, there is an irrelevant word such as `https`.
-We need to remove this kind of word. Even if we remove those words,
-it still hard to find interesting words.
+We can see that most of the review is a positive review.
+Where there are words such love, great, and the name of product
+such as `echo` and `alexa`.
 
+Usually, analytics is conducted to understand the pain point of
+customer. So, I think it is necessary to extract just the negative
+feedback from the dataset to get the information.
+
+We can select by column `feedback` where the value is 0 for negative feedback
+"""
+
+df = df[df['feedback'] == 0]
+
+if st.checkbox('Show filtered dataset', value=False):
+    st.write('dataset head')
+    st.write(df[['verified_reviews','feedback']].head())
+
+"""
+After we filtered the negative feedback only, we have an interesting
+word cloud. In which, the word is starting to hard to understand.
+We next to employ next technique to try to extract information out of
+it.
+"""
+
+col1, col2 = st.columns([0.4, 0.6])
+
+with st.spinner('Calculating frequencies with stopwords...'):
+    words, frequencies = countWordFrequenciesExcludeStopWordsAlexa('negative-feedback')
+    dfWords = pd.DataFrame({'word': words, 'frequency': frequencies})
+
+col1.write(dfWords.sort_values('frequency', ascending=False).head())
+
+with st.spinner('Generating word cloud...'):
+    wc = generateCloud(dict(zip(dfWords['word'], dfWords['frequency'])))
+    showCloud(wc, col2)
+
+"""
 The next technique that we can use to try is `n-grams`. N-grams comes
 from the assumptions that some words have interesting meaning if they
-come after or before another words. For example, the word `vaccine`
-have general meaning, but if it comes before `covid19`, as in
-`covid19 vaccine`, then we have a new more specific words that might
+come after or before another words. For example, the word `echo`
+have general meaning, but if it comes before `dot`, as in
+`echo dot`, then we have a new more specific words that might
 be interesting.
 
 By experimenting with the number of N-Grams, we might find another
 interesting words. Just like an experiment below. We started to see
 new word in certain grams. For example, in bigrams, we have new word
-`moderna vaccine` instead of `moderna` in unigram. In trigrams, we
-have new word `new cases toronto`.
+`doesn work` instead of `work` in unigram. In trigrams, we
+have new word `service couldn help`.
 """
 
-additional_stopwords = st.text_input('additional stop words (comma separated)', value="https")
+additional_stopwords = st.text_input('additional stop words (comma separated)')
 
 n_grams = st.radio('number of grams',(1,2,3,4,5), horizontal=True)
 
@@ -149,7 +184,7 @@ def showCloudWithGrams(ngrams, additional_stopwords):
     from sklearn.feature_extraction.text import CountVectorizer, ENGLISH_STOP_WORDS
     custom_stop_words = list(ENGLISH_STOP_WORDS.union(additional_stopwords.split(',')))
     vectorizer = CountVectorizer(stop_words=custom_stop_words,ngram_range=(ngrams,ngrams))
-    X = vectorizer.fit_transform(df['tweet_text'])
+    X = vectorizer.fit_transform(df['verified_reviews'].fillna(' '))
     words = vectorizer.get_feature_names_out()
     frequencies = X.toarray().sum(axis=0)
 
@@ -164,11 +199,8 @@ with st.spinner('Generating word cloud...'):
     showCloudWithGrams(n_grams, additional_stopwords)
 
 """
-But, if we analyze further, beyond bigrams, the number of frequencies
-are starting to be equal. Which mean no important words.
+But still, it is hard to extract the information out of it.
+Maybe we should try [Summarizer][summarizer]...
 
-When this happen, it might need another cleaning technique or we just
-need [another dataset][dataset-v2].
-
-[dataset-v2]: /Word_Analytics_Alexa
+[summarizer]: https://radimrehurek.com/gensim_3.8.3/summarization/summariser.html
 """
