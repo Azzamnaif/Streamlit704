@@ -57,4 +57,5 @@ tzlocal==5.0.1
 urllib3==2.0.2
 validators==0.20.0
 watchdog==3.0.0
+wordcloud==1.9.2
 zipp==3.15.0
