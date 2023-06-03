@@ -199,7 +199,10 @@ with st.spinner('Generating word cloud...'):
     showCloudWithGrams(n_grams, additional_stopwords)
 
 """
+In trigrams, we could find interesting word related to feedback, such as
+`customer service could`, `service couldn help`, `google home better`.
 But still, it is hard to extract the information out of it.
+For example, when we want to deep dive about the service problem.
 Maybe we should try [Summarizer][summarizer]...
 
 [summarizer]: https://radimrehurek.com/gensim_3.8.3/summarization/summariser.html
